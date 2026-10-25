@@ -12,7 +12,8 @@ are gone, yellow → green → brown → blue → pink → black. The line above
 the reds left.
 
 Fouls are detected automatically: potting the white, two reds in a row, a colour when a red is on, or
-the wrong colour once the reds are gone. A message shows the foul and the points, which go to the
+the wrong colour once the reds are gone. For a foul where nothing is potted (a miss, or hitting the wrong ball
+first), tap **Foul shot**. A message shows the foul and the points, which go to the
 opponent (the highest of 4, the ball on and the ball potted). The break ends and the opponent comes
 to the table.
 

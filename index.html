@@ -97,6 +97,8 @@
   .hint { text-align: center; font-size: 13px; color: var(--muted); min-height: 18px; }
 
   .balls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .foul-shot { width: 100%; padding: 12px; font-size: 16px; color: #ffb4b6; border-color: var(--danger); }
+  .dot.miss { background: none; box-shadow: inset 0 0 0 2px var(--danger); }
   .ball {
     aspect-ratio: 1;
     border-radius: 50%;
@@ -143,6 +145,8 @@
   <div class="hint" id="hint"></div>
 
   <section class="balls" id="balls"></section>
+
+  <button class="tool foul-shot" id="foulShot">Foul shot (nothing potted)</button>
 </div>
 
 <div class="toast" id="toast" role="alert"></div>
@@ -258,6 +262,14 @@
     render();
   }
 
+  // A foul where no ball is potted, e.g. a miss or hitting the wrong ball first.
+  function foulShot() {
+    if (state.active === null || state.ballOn === null) return;
+    snapshot();
+    foul(null, 'foul shot, ' + state.ballOn + ' was on');
+    render();
+  }
+
   function legalPot(id) {
     state.current.push(id);
     state.players[state.active].score += valueOf(id);
@@ -310,6 +322,10 @@
   function dot(id) {
     const s = document.createElement('span');
     s.className = 'dot';
+    if (!id) {
+      s.classList.add('miss');
+      return s;
+    }
     s.style.background = ballById(id).color;
     if (id === 'white') s.style.boxShadow = 'inset 0 0 0 2px var(--danger)';
     return s;
@@ -411,6 +427,7 @@
   function hideToast() { toastEl.classList.remove('show'); }
   toastEl.addEventListener('click', hideToast);
 
+  document.getElementById('foulShot').addEventListener('click', foulShot);
   document.getElementById('undo').addEventListener('click', undo);
   document.getElementById('newGame').addEventListener('click', newGame);
 
@@ -421,6 +438,7 @@
     ballsEl.querySelectorAll('button').forEach((b, i) => {
       b.disabled = noPlayer || over || (i === 0 && state.redsLeft === 0);
     });
+    document.getElementById('foulShot').disabled = noPlayer || over;
     document.getElementById('undo').disabled = !undoStack.length;
     renderHint(noPlayer, over);
     save();
