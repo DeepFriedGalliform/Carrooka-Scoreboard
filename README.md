@@ -1,5 +1,5 @@
-# carooka-score
-Mobile-friendly Carooka score tracker app for two players with foul selection and local storage.
+# Carrooka Score
+Mobile-friendly Carrooka score tracker app for two players with foul selection and local storage.
 
 ## Using it
 1. Tap a player's panel to put them at the table.

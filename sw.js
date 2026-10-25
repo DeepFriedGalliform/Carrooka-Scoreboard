@@ -1,4 +1,4 @@
-const CACHE_NAME = 'carooka-cache-v3';
+const CACHE_NAME = 'carrooka-cache-v4';
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (event) => {
