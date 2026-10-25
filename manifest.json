@@ -1,0 +1,13 @@
+{
+  "name": "Carooka Score",
+  "short_name": "Carooka",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a2a1d",
+  "theme_color": "#0f3d2a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

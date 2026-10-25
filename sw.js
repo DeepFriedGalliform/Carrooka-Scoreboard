@@ -1,4 +1,4 @@
-const CACHE_NAME = 'carooka-cache-v1';
+const CACHE_NAME = 'carooka-cache-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (event) => {
@@ -13,21 +13,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Network first so updates show up straight away; fall back to the cache when offline.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-          return response;
-        })
-        .catch(() => {
+    fetch(event.request)
+      .then((response) => {
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        return response;
+      })
+      .catch(() =>
+        caches.match(event.request).then((cached) => {
+          if (cached) return cached;
           if (event.request.mode === 'navigate') return caches.match('./index.html');
           return caches.match('./icon.svg');
-        });
-    })
+        })
+      )
   );
 });
