@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f3d2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Carooka">
+<title>Carooka Score</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root {
+    --baize: #0f3d2a;
+    --baize-dark: #0a2a1d;
+    --panel: #164d36;
+    --panel-active: #1f6b4a;
+    --text: #f3f6f4;
+    --muted: #a9c4b6;
+    --accent: #f5c518;
+    --danger: #e5484d;
+    --red: #d6262b;
+    --yellow: #f2c81f;
+    --green: #1f9d4a;
+    --brown: #7a4a22;
+    --blue: #1f5fd6;
+    --pink: #f27fb2;
+    --black: #151515;
+    --white: #f7f7f2;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--baize-dark);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    overscroll-behavior: none;
+  }
+  .app {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 12px);
+    gap: 10px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  header { display: flex; align-items: center; gap: 8px; }
+  header h1 { font-size: 20px; margin: 0; flex: 1; letter-spacing: .5px; }
+  .tool {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #2a6b4f;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .tool:active { transform: scale(.96); }
+  .tool:disabled { opacity: .4; }
+
+  .players { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .player {
+    background: var(--panel);
+    border: 3px solid transparent;
+    border-radius: 16px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    transition: background .15s, border-color .15s;
+  }
+  .player.active { background: var(--panel-active); border-color: var(--accent); }
+  .name-row { display: flex; align-items: center; gap: 4px; }
+  .name { font-size: 16px; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rename { background: none; border: none; color: var(--muted); font-size: 16px; padding: 2px 4px; }
+  .total { font-size: 52px; font-weight: 800; line-height: 1.05; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .break-label { font-size: 13px; color: var(--muted); }
+  .break-label b { color: var(--text); font-size: 18px; font-variant-numeric: tabular-nums; }
+  .current { min-height: 22px; display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 6px; }
+  .history-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); border-top: 1px solid #2a6b4f; padding-top: 6px; }
+  .history { flex: 1; min-height: 0; overflow-y: auto; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; -webkit-overflow-scrolling: touch; }
+  .entry { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .entry .dots { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; }
+  .entry .pts { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .entry.foul { color: #ffb4b6; }
+  .empty { font-size: 12px; color: var(--muted); font-style: italic; }
+
+  .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; box-shadow: inset -2px -2px 3px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.3); flex: none; }
+  .current .dot { width: 18px; height: 18px; }
+
+  .hint { text-align: center; font-size: 13px; color: var(--muted); min-height: 18px; }
+
+  .balls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .ball {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: none;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    box-shadow: inset -6px -8px 12px rgba(0,0,0,.35), inset 4px 5px 8px rgba(255,255,255,.25), 0 3px 6px rgba(0,0,0,.4);
+    max-width: 84px;
+    width: 100%;
+    justify-self: center;
+  }
+  .ball:active { transform: scale(.92); }
+  .ball:disabled { opacity: .35; }
+  .ball.light { color: #222; text-shadow: none; }
+
+  .foul-ball { position: relative; background: var(--white); }
+  .foul-ball::before, .foul-ball::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 58%; height: 12%; background: var(--danger); border-radius: 4px;
+  }
+  .foul-ball::before { transform: translate(-50%, -50%) rotate(45deg); }
+  .foul-ball::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: none; align-items: flex-end; justify-content: center; z-index: 10;
+  }
+  .overlay.open { display: flex; }
+  .sheet {
+    background: var(--baize);
+    width: 100%; max-width: 640px;
+    border-radius: 20px 20px 0 0;
+    padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px);
+  }
+  .sheet h2 { margin: 0 0 4px; font-size: 20px; }
+  .sheet p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  .sheet .balls { margin-bottom: 14px; }
+  .sheet .ball { font-size: 18px; }
+  .sheet-actions { display: flex; gap: 10px; }
+  .sheet-actions .tool { flex: 1; padding: 12px; font-size: 16px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Carooka</h1>
+    <button class="tool" id="undo">Undo</button>
+    <button class="tool" id="newGame">New game</button>
+  </header>
+
+  <section class="players" id="players"></section>
+
+  <div class="hint" id="hint"></div>
+
+  <section class="balls" id="balls"></section>
+</div>
+
+<div class="overlay" id="foulOverlay">
+  <div class="sheet">
+    <h2>Foul</h2>
+    <p id="foulText"></p>
+    <div class="balls" id="foulBalls"></div>
+    <div class="sheet-actions">
+      <button class="tool" id="foulCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const BALLS = [
+    { id: 'red',    value: 1, color: 'var(--red)' },
+    { id: 'yellow', value: 2, color: 'var(--yellow)', light: true },
+    { id: 'green',  value: 3, color: 'var(--green)' },
+    { id: 'brown',  value: 4, color: 'var(--brown)' },
+    { id: 'blue',   value: 5, color: 'var(--blue)' },
+    { id: 'pink',   value: 6, color: 'var(--pink)' },
+    { id: 'black',  value: 7, color: 'var(--black)' }
+  ];
+  const WHITE = { id: 'white', value: 4, color: 'var(--white)', light: true };
+  // Fouls are worth the value of the ball involved, with a minimum of 4 (white counts as 4).
+  const MIN_FOUL = 4;
+  const STORAGE_KEY = 'carooka-state-v1';
+  const ballById = (id) => BALLS.find((b) => b.id === id) || WHITE;
+  const foulValue = (id) => Math.max(MIN_FOUL, ballById(id).value);
+
+  const freshState = (names) => ({
+    players: [
+      { name: names ? names[0] : 'Player 1', score: 0, history: [] },
+      { name: names ? names[1] : 'Player 2', score: 0, history: [] }
+    ],
+    active: null,
+    current: []
+  });
+
+  let state = freshState();
+  let undoStack = [];
+
+  function load() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (saved && saved.state) {
+        state = saved.state;
+        undoStack = saved.undo || [];
+      }
+    } catch (e) { /* storage unavailable — start fresh */ }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, undo: undoStack.slice(-100) }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function snapshot() {
+    undoStack.push(JSON.stringify(state));
+    if (undoStack.length > 100) undoStack.shift();
+  }
+
+  const breakTotal = (balls) => balls.reduce((sum, id) => sum + ballById(id).value, 0);
+
+  // Moves the current break into the active player's history.
+  function closeBreak() {
+    if (state.active === null || state.current.length === 0) return;
+    const p = state.players[state.active];
+    p.history.unshift({ type: 'break', balls: state.current, pts: breakTotal(state.current) });
+    state.current = [];
+  }
+
+  function selectPlayer(i) {
+    if (state.active === i) return;
+    snapshot();
+    closeBreak();
+    state.active = i;
+    render();
+  }
+
+  function pot(id) {
+    if (state.active === null) return;
+    snapshot();
+    state.current.push(id);
+    state.players[state.active].score += ballById(id).value;
+    render();
+  }
+
+  function commitFoul(id) {
+    const offender = state.active;
+    const opponent = 1 - offender;
+    const pts = foulValue(id);
+    snapshot();
+    closeBreak();
+    state.players[opponent].score += pts;
+    state.players[opponent].history.unshift({ type: 'foul', ball: id, pts, by: state.players[offender].name });
+    state.active = opponent;
+    closeFoul();
+    render();
+  }
+
+  function undo() {
+    if (!undoStack.length) return;
+    state = JSON.parse(undoStack.pop());
+    render();
+  }
+
+  function newGame() {
+    if (!confirm('Start a new game? Scores will be reset.')) return;
+    snapshot();
+    state = freshState(state.players.map((p) => p.name));
+    render();
+  }
+
+  function rename(i) {
+    const name = prompt('Player name', state.players[i].name);
+    if (name === null || !name.trim()) return;
+    snapshot();
+    state.players[i].name = name.trim().slice(0, 20);
+    render();
+  }
+
+  function dot(id) {
+    const s = document.createElement('span');
+    s.className = 'dot';
+    s.style.background = ballById(id).color;
+    if (id === 'white') s.style.boxShadow = 'inset 0 0 0 2px var(--danger)';
+    return s;
+  }
+
+  const playersEl = document.getElementById('players');
+
+  function renderPlayers() {
+    playersEl.innerHTML = '';
+    state.players.forEach((p, i) => {
+      const isActive = state.active === i;
+      const panel = document.createElement('div');
+      panel.className = 'player' + (isActive ? ' active' : '');
+      panel.addEventListener('click', () => selectPlayer(i));
+
+      const nameRow = document.createElement('div');
+      nameRow.className = 'name-row';
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = p.name;
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'rename';
+      renameBtn.textContent = '✎';
+      renameBtn.setAttribute('aria-label', 'Rename ' + p.name);
+      renameBtn.addEventListener('click', (e) => { e.stopPropagation(); rename(i); });
+      nameRow.append(name, renameBtn);
+
+      const total = document.createElement('div');
+      total.className = 'total';
+      total.textContent = p.score;
+
+      const breakLabel = document.createElement('div');
+      breakLabel.className = 'break-label';
+      breakLabel.innerHTML = 'Break <b>' + (isActive ? breakTotal(state.current) : 0) + '</b>';
+
+      const current = document.createElement('div');
+      current.className = 'current';
+      if (isActive) state.current.forEach((id) => current.append(dot(id)));
+
+      const histTitle = document.createElement('div');
+      histTitle.className = 'history-title';
+      histTitle.textContent = 'Pot history';
+
+      const history = document.createElement('div');
+      history.className = 'history';
+      if (!p.history.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'No breaks yet';
+        history.append(empty);
+      }
+      p.history.forEach((h) => {
+        const row = document.createElement('div');
+        row.className = 'entry' + (h.type === 'foul' ? ' foul' : '');
+        const dots = document.createElement('div');
+        dots.className = 'dots';
+        if (h.type === 'foul') {
+          dots.append(dot(h.ball));
+          const t = document.createElement('span');
+          t.textContent = ' foul';
+          dots.append(t);
+        } else {
+          h.balls.forEach((id) => dots.append(dot(id)));
+        }
+        const pts = document.createElement('span');
+        pts.className = 'pts';
+        pts.textContent = '+' + h.pts;
+        row.append(dots, pts);
+        history.append(row);
+      });
+
+      panel.append(nameRow, total, breakLabel, current, histTitle, history);
+      playersEl.append(panel);
+    });
+  }
+
+  function makeBall(b, label, onTap) {
+    const btn = document.createElement('button');
+    btn.className = 'ball' + (b.light ? ' light' : '');
+    btn.style.background = b.color;
+    btn.textContent = label;
+    btn.setAttribute('aria-label', b.id + ' ' + label);
+    btn.addEventListener('click', onTap);
+    return btn;
+  }
+
+  const ballsEl = document.getElementById('balls');
+  BALLS.forEach((b) => ballsEl.append(makeBall(b, b.value, () => pot(b.id))));
+  const foulBtn = document.createElement('button');
+  foulBtn.className = 'ball foul-ball';
+  foulBtn.setAttribute('aria-label', 'Foul');
+  foulBtn.addEventListener('click', openFoul);
+  ballsEl.append(foulBtn);
+
+  const foulBallsEl = document.getElementById('foulBalls');
+  [WHITE, ...BALLS].forEach((b) => foulBallsEl.append(makeBall(b, '+' + foulValue(b.id), () => commitFoul(b.id))));
+
+  const overlay = document.getElementById('foulOverlay');
+  function openFoul() {
+    if (state.active === null) return;
+    const offender = state.players[state.active].name;
+    const opponent = state.players[1 - state.active].name;
+    document.getElementById('foulText').textContent =
+      'Foul by ' + offender + '. Pick the ball involved — points go to ' + opponent + '.';
+    overlay.classList.add('open');
+  }
+  function closeFoul() { overlay.classList.remove('open'); }
+  document.getElementById('foulCancel').addEventListener('click', closeFoul);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeFoul(); });
+
+  document.getElementById('undo').addEventListener('click', undo);
+  document.getElementById('newGame').addEventListener('click', newGame);
+
+  function render() {
+    renderPlayers();
+    const noPlayer = state.active === null;
+    ballsEl.querySelectorAll('button').forEach((b) => { b.disabled = noPlayer; });
+    document.getElementById('undo').disabled = !undoStack.length;
+    document.getElementById('hint').textContent = noPlayer
+      ? 'Tap a player to start their break'
+      : 'Tap balls as they are potted · tap the other player to end the break';
+    save();
+  }
+
+  load();
+  render();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
+</body>
+</html>
