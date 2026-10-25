@@ -50,8 +50,10 @@
     max-width: 640px;
     margin: 0 auto;
   }
-  header { display: flex; align-items: center; gap: 8px; }
-  header h1 { font-size: 20px; margin: 0; flex: 1; letter-spacing: .5px; }
+  header { display: flex; align-items: center; gap: 6px; }
+  header .tool { padding: 8px 10px; font-size: 13px; }
+  @media (max-width: 340px) { header .tool { padding: 6px 7px; } }
+  header h1 { font-size: clamp(14px, 4.4vw, 22px); margin: 0; flex: 1; letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tool {
     background: var(--panel);
     color: var(--text);
@@ -135,7 +137,7 @@
 <body>
 <div class="app">
   <header>
-    <h1>Carrooka</h1>
+    <h1>Carrooka Scoreboard</h1>
     <button class="tool" id="undo">Undo</button>
     <button class="tool" id="newGame">New game</button>
   </header>
@@ -166,7 +168,7 @@
   const RED_COUNT = 15;
   // Snooker foul rule: the highest of 4, the value of the ball on and the value of the ball potted.
   const MIN_FOUL = 4;
-  const STORAGE_KEY = 'carooka-state-v2';
+  const STORAGE_KEY = 'carrooka-state-v1';
   const ballById = (id) => BALLS.find((b) => b.id === id) || WHITE;
   const valueOf = (id) => ballById(id).value;
   const cap = (id) => id.charAt(0).toUpperCase() + id.slice(1);
