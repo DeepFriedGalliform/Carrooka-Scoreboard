@@ -19,8 +19,3 @@ to the table.
 
 **Undo** reverses the last action. **New game** resets the scores but keeps the names (tap ✎ to rename).
 The game is saved on the phone, so closing the browser doesn't lose it.
-
-## Putting it on your phone
-Host the folder with GitHub Pages (repo **Settings → Pages → Deploy from a branch → `main` / root**),
-open the page on your phone, then use **Add to Home Screen** (Safari share menu, or Chrome's ⋮ menu).
-It then opens full screen like an app and works offline.
