@@ -114,31 +114,20 @@
   .ball:disabled { opacity: .35; }
   .ball.light { color: #222; text-shadow: none; }
 
-  .foul-ball { position: relative; background: var(--white); }
-  .foul-ball::before, .foul-ball::after {
-    content: ""; position: absolute; left: 50%; top: 50%;
-    width: 58%; height: 12%; background: var(--danger); border-radius: 4px;
-  }
-  .foul-ball::before { transform: translate(-50%, -50%) rotate(45deg); }
-  .foul-ball::after { transform: translate(-50%, -50%) rotate(-45deg); }
+  .hint.over { color: var(--accent); font-weight: 700; font-size: 15px; }
+  .hint .on { display: inline-block; vertical-align: -3px; margin: 0 2px; }
 
-  .overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.6);
-    display: none; align-items: flex-end; justify-content: center; z-index: 10;
+  .toast {
+    position: fixed; left: 12px; right: 12px; top: 40%;
+    max-width: 616px; margin: 0 auto;
+    background: var(--danger); color: #fff;
+    border-radius: 14px; padding: 14px 16px;
+    font-size: 17px; font-weight: 700; line-height: 1.35; text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    opacity: 0; transform: translateY(-12px); pointer-events: none;
+    transition: opacity .2s, transform .2s; z-index: 10;
   }
-  .overlay.open { display: flex; }
-  .sheet {
-    background: var(--baize);
-    width: 100%; max-width: 640px;
-    border-radius: 20px 20px 0 0;
-    padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px);
-  }
-  .sheet h2 { margin: 0 0 4px; font-size: 20px; }
-  .sheet p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
-  .sheet .balls { margin-bottom: 14px; }
-  .sheet .ball { font-size: 18px; }
-  .sheet-actions { display: flex; gap: 10px; }
-  .sheet-actions .tool { flex: 1; padding: 12px; font-size: 16px; }
+  .toast.show { opacity: 1; transform: none; pointer-events: auto; }
 </style>
 </head>
 <body>
@@ -156,16 +145,7 @@
   <section class="balls" id="balls"></section>
 </div>
 
-<div class="overlay" id="foulOverlay">
-  <div class="sheet">
-    <h2>Foul</h2>
-    <p id="foulText"></p>
-    <div class="balls" id="foulBalls"></div>
-    <div class="sheet-actions">
-      <button class="tool" id="foulCancel">Cancel</button>
-    </div>
-  </div>
-</div>
+<div class="toast" id="toast" role="alert"></div>
 
 <script>
   const BALLS = [
@@ -177,12 +157,15 @@
     { id: 'pink',   value: 6, color: 'var(--pink)' },
     { id: 'black',  value: 7, color: 'var(--black)' }
   ];
-  const WHITE = { id: 'white', value: 4, color: 'var(--white)', light: true };
-  // Fouls are worth the value of the ball involved, with a minimum of 4 (white counts as 4).
+  const WHITE = { id: 'white', value: 0, color: 'var(--white)', light: true };
+  const COLOURS = BALLS.slice(1).map((b) => b.id);
+  const RED_COUNT = 15;
+  // Snooker foul rule: the highest of 4, the value of the ball on and the value of the ball potted.
   const MIN_FOUL = 4;
-  const STORAGE_KEY = 'carooka-state-v1';
+  const STORAGE_KEY = 'carooka-state-v2';
   const ballById = (id) => BALLS.find((b) => b.id === id) || WHITE;
-  const foulValue = (id) => Math.max(MIN_FOUL, ballById(id).value);
+  const valueOf = (id) => ballById(id).value;
+  const cap = (id) => id.charAt(0).toUpperCase() + id.slice(1);
 
   const freshState = (names) => ({
     players: [
@@ -190,7 +173,10 @@
       { name: names ? names[1] : 'Player 2', score: 0, history: [] }
     ],
     active: null,
-    current: []
+    current: [],
+    redsLeft: RED_COUNT,
+    // 'red', 'colour' (any colour after a red), a specific colour once the reds are gone, or null when the frame is over.
+    ballOn: 'red'
   });
 
   let state = freshState();
@@ -227,37 +213,81 @@
     state.current = [];
   }
 
+  // A new visit to the table always starts on a red while any remain; once they are gone, a
+  // colour that was "on" after the last red falls back to the yellow.
+  function resetBallOn() {
+    if (state.ballOn === null) return;
+    if (state.redsLeft > 0) state.ballOn = 'red';
+    else if (state.ballOn === 'colour') state.ballOn = 'yellow';
+  }
+
+  function endBreak() {
+    closeBreak();
+    resetBallOn();
+  }
+
   function selectPlayer(i) {
     if (state.active === i) return;
     snapshot();
-    closeBreak();
+    endBreak();
     state.active = i;
     render();
   }
 
+  // Returns a foul description when potting `id` breaks the rules, or null when the pot is legal.
+  function checkFoul(id) {
+    const on = state.ballOn;
+    if (id === 'white') return 'white ball potted';
+    if (on === 'red') return id === 'red' ? null : cap(id) + ' potted, red was on';
+    if (on === 'colour') return id === 'red' ? 'two reds in a row' : null;
+    return id === on ? null : cap(id) + ' potted, ' + on + ' was on';
+  }
+
+  function foulPoints(id) {
+    const on = state.ballOn;
+    const onValue = on === 'red' ? 1 : on === 'colour' ? 0 : valueOf(on);
+    return Math.max(MIN_FOUL, onValue, valueOf(id));
+  }
+
   function pot(id) {
-    if (state.active === null) return;
+    if (state.active === null || state.ballOn === null) return;
     snapshot();
-    state.current.push(id);
-    state.players[state.active].score += ballById(id).value;
+    const reason = checkFoul(id);
+    if (reason) foul(id, reason);
+    else legalPot(id);
     render();
   }
 
-  function commitFoul(id) {
-    const offender = state.active;
-    const opponent = 1 - offender;
-    const pts = foulValue(id);
-    snapshot();
+  function legalPot(id) {
+    state.current.push(id);
+    state.players[state.active].score += valueOf(id);
+    if (id === 'red') {
+      state.redsLeft--;
+      state.ballOn = 'colour';
+    } else if (state.ballOn === 'colour') {
+      state.ballOn = state.redsLeft > 0 ? 'red' : 'yellow';
+    } else {
+      state.ballOn = COLOURS[COLOURS.indexOf(id) + 1] || null;
+    }
+  }
+
+  function foul(id, reason) {
+    const opponent = 1 - state.active;
+    const pts = foulPoints(id);
+    // A red potted on a foul stays off the table.
+    if (id === 'red') state.redsLeft--;
     closeBreak();
-    state.players[opponent].score += pts;
-    state.players[opponent].history.unshift({ type: 'foul', ball: id, pts, by: state.players[offender].name });
+    resetBallOn();
+    const p = state.players[opponent];
+    p.score += pts;
+    p.history.unshift({ type: 'foul', ball: id, pts, reason });
     state.active = opponent;
-    closeFoul();
-    render();
+    showToast('Foul – ' + reason + '. ' + pts + ' points to ' + p.name + '. End of break.');
   }
 
   function undo() {
     if (!undoStack.length) return;
+    hideToast();
     state = JSON.parse(undoStack.pop());
     render();
   }
@@ -368,27 +398,18 @@
 
   const ballsEl = document.getElementById('balls');
   BALLS.forEach((b) => ballsEl.append(makeBall(b, b.value, () => pot(b.id))));
-  const foulBtn = document.createElement('button');
-  foulBtn.className = 'ball foul-ball';
-  foulBtn.setAttribute('aria-label', 'Foul');
-  foulBtn.addEventListener('click', openFoul);
-  ballsEl.append(foulBtn);
+  ballsEl.append(makeBall(WHITE, '', () => pot('white')));
 
-  const foulBallsEl = document.getElementById('foulBalls');
-  [WHITE, ...BALLS].forEach((b) => foulBallsEl.append(makeBall(b, '+' + foulValue(b.id), () => commitFoul(b.id))));
-
-  const overlay = document.getElementById('foulOverlay');
-  function openFoul() {
-    if (state.active === null) return;
-    const offender = state.players[state.active].name;
-    const opponent = state.players[1 - state.active].name;
-    document.getElementById('foulText').textContent =
-      'Foul by ' + offender + '. Pick the ball involved — points go to ' + opponent + '.';
-    overlay.classList.add('open');
+  const toastEl = document.getElementById('toast');
+  let toastTimer;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 4000);
   }
-  function closeFoul() { overlay.classList.remove('open'); }
-  document.getElementById('foulCancel').addEventListener('click', closeFoul);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeFoul(); });
+  function hideToast() { toastEl.classList.remove('show'); }
+  toastEl.addEventListener('click', hideToast);
 
   document.getElementById('undo').addEventListener('click', undo);
   document.getElementById('newGame').addEventListener('click', newGame);
@@ -396,12 +417,40 @@
   function render() {
     renderPlayers();
     const noPlayer = state.active === null;
-    ballsEl.querySelectorAll('button').forEach((b) => { b.disabled = noPlayer; });
+    const over = state.ballOn === null;
+    ballsEl.querySelectorAll('button').forEach((b, i) => {
+      b.disabled = noPlayer || over || (i === 0 && state.redsLeft === 0);
+    });
     document.getElementById('undo').disabled = !undoStack.length;
-    document.getElementById('hint').textContent = noPlayer
-      ? 'Tap a player to start their break'
-      : 'Tap balls as they are potted · tap the other player to end the break';
+    renderHint(noPlayer, over);
     save();
+  }
+
+  function renderHint(noPlayer, over) {
+    const hint = document.getElementById('hint');
+    hint.className = 'hint' + (over ? ' over' : '');
+    hint.innerHTML = '';
+    if (over) {
+      const [a, b] = state.players;
+      hint.textContent = a.score === b.score
+        ? 'Frame over – scores level at ' + a.score
+        : 'Frame over – ' + (a.score > b.score ? a.name : b.name) + ' wins';
+      return;
+    }
+    if (noPlayer) {
+      hint.textContent = 'Tap a player to start their break';
+      return;
+    }
+    const on = state.ballOn;
+    hint.append('Ball on: ');
+    if (on === 'colour') {
+      hint.append('any colour');
+    } else {
+      const d = dot(on);
+      d.classList.add('on');
+      hint.append(d, ' ' + cap(on));
+    }
+    hint.append(' · Reds left: ' + state.redsLeft);
   }
 
   load();
