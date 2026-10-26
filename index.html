@@ -437,8 +437,11 @@
     renderPlayers();
     const noPlayer = state.active === null;
     const over = state.ballOn === null;
+    // In the colours sequence, every colour before the ball on has already been potted.
+    const coloursGone = COLOURS.indexOf(state.ballOn);
     ballsEl.querySelectorAll('button').forEach((b, i) => {
-      b.disabled = noPlayer || over || (i === 0 && state.redsLeft === 0);
+      const gone = i === 0 ? state.redsLeft === 0 : i <= COLOURS.length && i - 1 < coloursGone;
+      b.disabled = noPlayer || over || gone;
     });
     document.getElementById('foulShot').disabled = noPlayer || over;
     document.getElementById('undo').disabled = !undoStack.length;
